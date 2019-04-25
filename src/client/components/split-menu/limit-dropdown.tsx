@@ -25,11 +25,7 @@ function formatLimit(limit: number | string): string {
   return limit === null ? "None" : String(limit);
 }
 
-<<<<<<< HEAD
 const defaultLimits = [5, 10, 25, 50, 100, 250, 500, 1000, 5000];
-=======
-const defaultLimits = [5, 10, 25, 50, 100];
->>>>>>> parent of 45815ceb... Merge branch 'master' of https://github.com/allegro/turnilo
 const limitsForColors = [3, 5, 7, 9, 10];
 
 function calculateSelectedLimit(limit: number, colors: Colors) {
