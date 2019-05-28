@@ -1,5 +1,4 @@
 /*
- * Copyright 2015-2016 Imply Data, Inc.
  * Copyright 2017-2018 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 @import '../../imports';
 
-.user-menu {
-  ul.bubble-list {
-    li.display-name {
-      pointer-events: none;
-      color: $text-lighterish;
-    }
+.mkurl-link {
+  color: $brand;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
   }
 }
