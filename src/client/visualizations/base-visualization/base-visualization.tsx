@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Imply Data, Inc.
- * Copyright 2017-2018 Allegro.pl
+ * Copyright 2017-2019 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -145,7 +145,13 @@ export class BaseVisualization<S extends BaseVisualizationState> extends React.C
       nextEssence.differentSplits(essence) ||
       nextEssence.differentColors(essence) ||
       nextEssence.differentSeries(essence) ||
+      this.differentBucketingTimezone(nextEssence) ||
       this.differentLastRefreshRequestTimestamp(nextProps);
+  }
+
+  private differentBucketingTimezone(newEssence: Essence): boolean {
+    const { essence } = this.props;
+    return !essence.timezone.equals(newEssence.timezone) && newEssence.splits.hasSplitOn(essence.getTimeDimension());
   }
 
   private differentLastRefreshRequestTimestamp({ refreshRequestTimestamp }: VisualizationProps): boolean {

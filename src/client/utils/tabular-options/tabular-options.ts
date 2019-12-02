@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 Allegro.pl
+ * Copyright 2017-2019 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,10 @@ export default function tabularOptions(essence: Essence): TabulatorOptions {
   return {
     formatter: {
       TIME_RANGE: (range: TimeRange) => range.start.toISOString()
+    },
+    attributeFilter: ({ name }: AttributeInfo) => {
+      return findSeriesAndDerivation(name, essence.getConcreteSeries()) !== null
+        || essence.dataCube.getDimension(name) !== undefined;
     },
     attributeTitle: ({ name }: AttributeInfo) => {
       const seriesWithDerivation = findSeriesAndDerivation(name, essence.getConcreteSeries());

@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Imply Data, Inc.
- * Copyright 2017-2018 Allegro.pl
+ * Copyright 2017-2019 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ export interface DimensionMeasurePanelProps {
   essence: Essence;
   menuStage: Stage;
   triggerFilterMenu: (dimension: Dimension) => void;
-  newSeriesExpression: Unary<Series, void>;
+  appendDirtySeries: Unary<Series, void>;
   style?: React.CSSProperties;
 }
 
@@ -93,7 +93,7 @@ export class DimensionMeasurePanel extends React.Component<DimensionMeasurePanel
   }
 
   render() {
-    const { clicker, essence, menuStage, triggerFilterMenu, newSeriesExpression, style } = this.props;
+    const { clicker, essence, menuStage, triggerFilterMenu, appendDirtySeries, style } = this.props;
     const { dividerPosition, containerHeight } = this.state;
     const { maxDividerPosition, minDividerPosition } = dividerConstraints(containerHeight);
 
@@ -130,7 +130,7 @@ export class DimensionMeasurePanel extends React.Component<DimensionMeasurePanel
           style={measureListStyle}
           clicker={clicker}
           essence={essence}
-          newExpression={newSeriesExpression}
+          appendDirtySeries={appendDirtySeries}
         />
       </div>
     </div>;

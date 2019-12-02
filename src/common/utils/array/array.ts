@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Imply Data, Inc.
- * Copyright 2017-2018 Allegro.pl
+ * Copyright 2017-2019 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,10 @@ export function indexByAttribute(array: any[], key: string, value: string): any 
   }
 
   return -1;
+}
+
+export function insert<T>(array: T[], index: number, element: T): T[] {
+  return [...array.slice(0, index), element, ...array.slice(index)];
 }
 
 export function shallowEqualArrays(a: Array<unknown>, b: Array<unknown>): boolean {

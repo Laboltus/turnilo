@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Imply Data, Inc.
- * Copyright 2017-2018 Allegro.pl
+ * Copyright 2017-2019 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import { TABLE_MANIFEST } from "../../manifests/table/table";
 import { TOTALS_MANIFEST } from "../../manifests/totals/totals";
 import { DataCube, Introspection } from "../data-cube/data-cube";
 import { DataCubeFixtures } from "../data-cube/data-cube.fixtures";
+import { DimensionKind } from "../dimension/dimension";
 import { Highlight } from "../highlight/highlight";
 import { HighlightFixtures } from "../highlight/highlight.fixtures";
 import { MeasureFixtures } from "../measure/measure.fixtures";
@@ -43,13 +44,13 @@ describe("EssenceProps", () => {
     introspection: ("none" as Introspection),
     dimensions: [
       {
-        kind: "time",
+        kind: "time" as DimensionKind,
         name: "time",
         title: "Time",
         formula: "$time"
       },
       {
-        kind: "string",
+        kind: "string" as DimensionKind,
         name: "twitterHandle",
         title: "Twitter Handle",
         formula: "$twitterHandle"
@@ -76,8 +77,6 @@ describe("EssenceProps", () => {
 
   const dataCube = DataCube.fromJS(dataCubeJS);
 
-  const context = { dataCube, visualizations: MANIFESTS };
-
   describe("removes highlight when necessary", () => {
     const { lineChartWithAddedMeasure, lineChartWithAvgAddedMeasure, tableNoMeasure } = HighlightFixtures;
 
@@ -100,7 +99,7 @@ describe("EssenceProps", () => {
 
   describe(".fromDataCube", () => {
     it.skip("works in the base case", () => {
-      const essence = Essence.fromDataCube(dataCube, context);
+      const essence = Essence.fromDataCube(dataCube, MANIFESTS);
 
       // TODO: don't test toJS
       expect(essence.toJS()).to.deep.equal({

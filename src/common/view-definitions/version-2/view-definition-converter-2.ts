@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 Allegro.pl
+ * Copyright 2017-2019 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ export class ViewDefinitionConverter2 implements ViewDefinitionConverter<ViewDef
     const visualization = NamedArray.findByName(visualizations, definition.visualization);
 
     const measureNames = definition.multiMeasureMode ? definition.selectedMeasures : [definition.singleMeasure];
-    const series = SeriesList.fromMeasureNames(measureNames);
+    const series = SeriesList.fromMeasures(dataCube.measures.getMeasuresByNames(measureNames));
     const timezone = definition.timezone && Timezone.fromJS(definition.timezone);
     const filter = Filter.fromClauses(filterJSConverter(definition.filter, dataCube));
     const pinnedDimensions = OrderedSet(definition.pinnedDimensions);

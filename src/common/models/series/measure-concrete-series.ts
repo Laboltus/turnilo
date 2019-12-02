@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 Allegro.pl
+ * Copyright 2017-2019 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,10 +24,6 @@ export function fromMeasure(measure: Measure): MeasureConcreteSeries {
 }
 
 export class MeasureConcreteSeries extends ConcreteSeries<MeasureSeries> {
-
-  constructor(series: MeasureSeries, measure: Measure) {
-    super(series, measure);
-  }
 
   protected applyExpression(expression: Expression, name: string, nestingLevel: number): ApplyExpression {
     return new ApplyExpression({ expression, name });

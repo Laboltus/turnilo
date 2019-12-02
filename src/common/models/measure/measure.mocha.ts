@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Imply Data, Inc.
- * Copyright 2017-2018 Allegro.pl
+ * Copyright 2017-2019 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -210,6 +210,22 @@ describe("Measure", () => {
           name: "page_theta",
           title: "Page Theta",
           formula: "$main.countDistinct($page_theta)"
+        }
+      ]);
+    });
+
+    it("works with hll", () => {
+      const attribute = AttributeInfo.fromJS({
+        name: "page_hll",
+        nativeType: "HLLSketch",
+        type: "STRING"
+      });
+      const measures = Measure.measuresFromAttributeInfo(attribute).map((m => m.toJS()));
+      expect(measures).to.deep.equal([
+        {
+          name: "page_hll",
+          title: "Page Hll",
+          formula: "$main.countDistinct($page_hll)"
         }
       ]);
     });

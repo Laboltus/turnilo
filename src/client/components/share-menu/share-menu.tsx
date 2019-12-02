@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Imply Data, Inc.
- * Copyright 2017-2018 Allegro.pl
+ * Copyright 2017-2019 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ function linkItems({ essence, customization, timekeeper, onClose, getCubeViewHas
       </li>
       {isRelative && <li
         key="short-url-specific"
-        onClick={() => openShortenerModal(hash, STRINGS.copyFixedTimeUrl)}>
+        onClick={() => openShortenerModal(specificHash, STRINGS.copyFixedTimeUrl)}>
         {STRINGS.createShortFixedUrl}
       </li>}
     </React.Fragment>}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 Allegro.pl
+ * Copyright 2017-2019 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ export enum SeriesDerivation { CURRENT = "", PREVIOUS = "_previous__", DELTA = "
 
 export abstract class ConcreteSeries<T extends Series = Series> {
 
-  protected constructor(public readonly definition: T, public readonly measure: Measure) {
+  constructor(public readonly definition: T, public readonly measure: Measure) {
   }
 
   public equals(other: ConcreteSeries): boolean {
@@ -78,7 +78,12 @@ export abstract class ConcreteSeries<T extends Series = Series> {
   }
 
   public selectValue(datum: Datum, period = SeriesDerivation.CURRENT): number {
-    return datum[this.plywoodKey(period)] as number;
+    const value = datum[this.plywoodKey(period)];
+    if (typeof value === "number") return value;
+    if (value === "NaN") return NaN;
+    if (value === "Infinity") return Infinity;
+    if (value === "-Infinity") return -Infinity;
+    return NaN;
   }
 
   /**
@@ -107,8 +112,6 @@ export function titleWithDerivation({ title }: Measure, derivation: SeriesDeriva
       return `Previous ${title}`;
     case SeriesDerivation.DELTA:
       return `Difference ${title}`;
-    default:
-      return title;
   }
 }
 

@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Imply Data, Inc.
- * Copyright 2017-2018 Allegro.pl
+ * Copyright 2017-2019 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ export interface DruidRequestDecoratorModule {
   druidRequestDecoratorFactory: (logger: Logger, params: RequestDecoratorFactoryParams) => DruidRequestDecorator;
 }
 
-// For each external we want to maintain its source and weather it should introspect at all
+// For each external we want to maintain its source and whether it should introspect at all
 export interface ManagedExternal {
   name: string;
   external: External;

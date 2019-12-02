@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Imply Data, Inc.
- * Copyright 2017-2018 Allegro.pl
+ * Copyright 2017-2019 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ export class Measure extends BaseImmutable<MeasureValue, MeasureJS> {
     const ref = $(name);
 
     if (nativeType) {
-      if (nativeType === "hyperUnique" || nativeType === "thetaSketch") {
+      if (nativeType === "hyperUnique" || nativeType === "thetaSketch" || nativeType === "HLLSketch") {
         return [
           new Measure({
             name: makeUrlSafeName(name),
@@ -184,8 +184,13 @@ export class Measure extends BaseImmutable<MeasureValue, MeasureJS> {
     return Measure.hasCountDistinctReferences(this.expression) || Measure.hasQuantileReferences(this.expression);
   }
 
+  public isQuantile() {
+    return this.expression instanceof QuantileExpression;
+  }
+
   // Default getter from ImmutableValue
   public getFormat: () => string;
+
 }
 
 BaseImmutable.finalize(Measure);

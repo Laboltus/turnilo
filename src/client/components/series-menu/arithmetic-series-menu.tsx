@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 Allegro.pl
+ * Copyright 2017-2019 Allegro.pl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ export const ArithmeticSeriesMenu: React.SFC<ArithmeticOperationSeriesMenuProps>
     <div className="operand-select__title">Select measure</div>
     <Dropdown<Measure>
       className="operand-select"
-      items={measures.filterMeasures(m => !m.equals(measure))}
+      items={measures.filterMeasures(m => !m.equals(measure) && !m.isApproximate())}
       renderItem={renderMeasure}
       renderSelectedItem={renderSelectedMeasure}
       equal={(a, b) => a.equals(b)}
