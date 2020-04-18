@@ -36,11 +36,11 @@ Indicates that Turnilo should run in verbose mode. This will log all the queries
 
 The host that Turnilo will bind to.
 
-**serverRoot** (string), default "turnilo"
+**serverRoot** (string), default: ""
 
 A custom path to act as the server string.
 
-The Turnilo UI will be served from `http://turnilo-host:$port/` and `http://turnilo-host:$port/$serverRoot`
+The Turnilo UI will be served from `http://turnilo-host:$port/$serverRoot`
 
 **readinessEndpoint** (string), default "/health/ready"
 
@@ -411,6 +411,25 @@ Let's say that you are responsible for all accounts in the United States as well
 
 Now my account would represent a custom filter boolean dimension.
 
+##### Quantiles
+
+If you have dimension defined as histogram, you can add quantile measure. Use plywood method quantile on desired histogram and provide required parameters.
+Percentile parameter would be used as default percentile and could be adjusted on UI. Tunning parameters will be passed as is to Druid. 
+
+```yaml
+- name: clicks_percentile
+  formula: $main.quantile($response_time_ms, 0.99, 'k=128')
+```
+
+Turnilo can handle percentiles only as top level operation in expression so it is impossible to nest quantile expression inside let's say division. 
+
+```yaml
+- name: opaque_percentile_formula
+  forumla: $main.quantile($response_time_ms, 0.9, 'k=128') * 1000
+```
+
+If turnilo encounters such formula, it would assume it is simple measure. User would be able to use this measure as is, but won't be able to picking percentile. 
+
 ##### Custom transformations
 
 If no existing plywood function meets your needs, you could also define your own custom transformation.
@@ -728,6 +747,25 @@ For example:
 customization:
   urlShortener: |
     return request.get('http://tinyurl.com/api-create.php?url=' + encodeURIComponent(url))
+```
+
+### CSS Variables
+
+Turnilo allows you to override CSS variables to apply your own theming
+
+For example:
+
+```yaml
+customization:
+  cssVariables:
+    brand: '#829aa3;'
+    item-dimension: '#f2cee0;'
+    item-dimension-text: white;
+    item-measure: '#cef2e0;'
+    item-measure-text: white;
+    background-brand: white;
+    background-brand-text: '#999;'
+    background-base: '#fbfbfb;'
 ```
 
 ### External links

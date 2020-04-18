@@ -15,24 +15,23 @@
  * limitations under the License.
  */
 
-import { Colors } from "../colors/colors";
 import { Dimension } from "../dimension/dimension";
 import { VisStrategy } from "../essence/essence";
 import { Filter } from "../filter/filter";
-import { Manifest } from "../manifest/manifest";
-import { Measure } from "../measure/measure";
 import { SeriesList } from "../series-list/series-list";
 import { Series } from "../series/series";
 import { Split } from "../split/split";
 import { Splits } from "../splits/splits";
 import { TimeShift } from "../time-shift/time-shift";
+import { VisualizationManifest } from "../visualization-manifest/visualization-manifest";
+import { VisualizationSettings } from "../visualization-settings/visualization-settings";
 
 export interface Clicker {
-  changeFilter?(filter: Filter, colors?: Colors): void;
+  changeFilter?(filter: Filter): void;
 
   changeComparisonShift?(timeShift: TimeShift): void;
 
-  changeSplits?(splits: Splits, strategy: VisStrategy, colors?: Colors): void;
+  changeSplits?(splits: Splits, strategy: VisStrategy): void;
 
   changeSplit?(split: Split, strategy: VisStrategy): void;
 
@@ -46,19 +45,11 @@ export interface Clicker {
 
   removeSeries?(series: Series): void;
 
-  changeColors?(colors: Colors): void;
-
-  changeVisualization?(visualization: Manifest): void;
+  changeVisualization?(visualization: VisualizationManifest, settings: VisualizationSettings): void;
 
   pin?(dimension: Dimension): void;
 
   unpin?(dimension: Dimension): void;
 
-  changePinnedSortMeasure?(measure: Measure): void;
-
-  changeHighlight?(measure: string, delta: Filter): void;
-
-  acceptHighlight?(): void;
-
-  dropHighlight?(): void;
+  changePinnedSortSeries?(series: Series): void;
 }

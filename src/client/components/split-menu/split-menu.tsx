@@ -17,15 +17,14 @@
 
 import { Duration } from "chronoshift";
 import * as React from "react";
-import { Clicker } from "../../../common/models/clicker/clicker";
-import { Colors } from "../../../common/models/colors/colors";
 import { Dimension } from "../../../common/models/dimension/dimension";
-import { Essence, VisStrategy } from "../../../common/models/essence/essence";
+import { Essence } from "../../../common/models/essence/essence";
 import { granularityToString, isGranularityValid } from "../../../common/models/granularity/granularity";
 import { DimensionSortOn, SortOn } from "../../../common/models/sort-on/sort-on";
 import { Sort } from "../../../common/models/sort/sort";
 import { Bucket, Split } from "../../../common/models/split/split";
 import { Stage } from "../../../common/models/stage/stage";
+import { Binary } from "../../../common/utils/functional/functional";
 import { Fn } from "../../../common/utils/general/general";
 import { STRINGS } from "../../config/constants";
 import { enterKey } from "../../utils/dom/dom";
@@ -37,14 +36,13 @@ import { SortDropdown } from "./sort-dropdown";
 import "./split-menu.scss";
 
 export interface SplitMenuProps {
-  clicker: Clicker;
   essence: Essence;
+  saveSplit: Binary<Split, Split, void>;
   openOn: Element;
   containerStage: Stage;
   onClose: Fn;
   dimension: Dimension;
   split: Split;
-  inside?: Element;
 }
 
 export interface SplitMenuState {
@@ -52,27 +50,21 @@ export interface SplitMenuState {
   granularity?: string;
   sort?: Sort;
   limit?: number;
-  colors?: Colors;
 }
 
 export class SplitMenu extends React.Component<SplitMenuProps, SplitMenuState> {
-  public mounted: boolean;
 
   state: SplitMenuState = {};
 
   componentWillMount() {
-    const { essence, split } = this.props;
-    const { colors } = essence;
+    const { split } = this.props;
     const { bucket, reference, sort, limit } = split;
-
-    const colorsDimensionMatch = colors && colors.dimension === split.reference;
 
     this.setState({
       reference,
       sort,
       limit,
-      granularity: bucket && granularityToString(bucket),
-      colors: colorsDimensionMatch ? colors : null
+      granularity: bucket && granularityToString(bucket)
     });
   }
 
@@ -90,17 +82,17 @@ export class SplitMenu extends React.Component<SplitMenuProps, SplitMenuState> {
 
   saveSort = (sort: Sort) => this.setState({ sort });
 
-  saveLimit = (limit: number, colors: Colors) => this.setState({ colors, limit });
+  saveLimit = (limit: number) => this.setState({ limit });
 
   onCancelClick = () => this.props.onClose();
 
   onOkClick = () => {
     if (!this.validate()) return;
-    const { split: originalSplit, clicker, essence, onClose } = this.props;
-    const split = this.constructSplitCombine();
-    clicker.changeSplits(essence.splits.replace(originalSplit, split), VisStrategy.UnfairGame, this.state.colors);
+    const { split, saveSplit, onClose } = this.props;
+    const newSplit = this.constructSplitCombine();
+    saveSplit(split, newSplit);
     onClose();
-  }
+  };
 
   private constructGranularity(): Bucket {
     const { dimension: { kind } } = this.props;
@@ -122,13 +114,12 @@ export class SplitMenu extends React.Component<SplitMenuProps, SplitMenuState> {
   }
 
   validate() {
-    const { dimension: { kind }, split: originalSplit, essence: { colors: originalColors } } = this.props;
+    const { dimension: { kind }, split: originalSplit  } = this.props;
     if (!isGranularityValid(kind, this.state.granularity)) {
       return false;
     }
     const newSplit: Split = this.constructSplitCombine();
-    return !originalSplit.equals(newSplit)
-      || (originalColors && !originalColors.equals(this.state.colors));
+    return !originalSplit.equals(newSplit);
   }
 
   renderSortDropdown() {
@@ -138,16 +129,16 @@ export class SplitMenu extends React.Component<SplitMenuProps, SplitMenuState> {
     const options = [new DimensionSortOn(dimension), ...seriesSortOns];
     const selected = SortOn.fromSort(sort, essence);
     return <SortDropdown
-        direction={sort.direction}
-        selected={selected}
-        options={options}
-        onChange={this.saveSort}
-      />;
+      direction={sort.direction}
+      selected={selected}
+      options={options}
+      onChange={this.saveSort}
+    />;
   }
 
   render() {
-    const { containerStage, openOn, dimension, onClose, inside } = this.props;
-    const { colors, granularity, limit } = this.state;
+    const { containerStage, openOn, dimension, onClose } = this.props;
+    const { granularity, limit } = this.state;
     if (!dimension) return null;
 
     return <BubbleMenu
@@ -157,7 +148,6 @@ export class SplitMenu extends React.Component<SplitMenuProps, SplitMenuState> {
       stage={Stage.fromSize(250, 240)}
       openOn={openOn}
       onClose={onClose}
-      inside={inside}
     >
       <GranularityPicker
         dimension={dimension}
@@ -166,10 +156,9 @@ export class SplitMenu extends React.Component<SplitMenuProps, SplitMenuState> {
       />
       {this.renderSortDropdown()}
       <LimitDropdown
-        colors={colors}
         onLimitSelect={this.saveLimit}
         limit={limit}
-        includeNone={dimension.isContinuous()}/>
+        includeNone={dimension.isContinuous()} />
       <div className="button-bar">
         <Button className="ok" type="primary" disabled={!this.validate()} onClick={this.onOkClick} title={STRINGS.ok} />
         <Button type="secondary" onClick={this.onCancelClick} title={STRINGS.cancel} />

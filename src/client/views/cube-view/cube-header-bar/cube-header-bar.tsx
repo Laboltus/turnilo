@@ -20,7 +20,6 @@ import { immutableEqual } from "immutable-class";
 import * as React from "react";
 import { Clicker } from "../../../../common/models/clicker/clicker";
 import { Customization } from "../../../../common/models/customization/customization";
-import { DataCube } from "../../../../common/models/data-cube/data-cube";
 import { Essence } from "../../../../common/models/essence/essence";
 import { Timekeeper } from "../../../../common/models/timekeeper/timekeeper";
 import { Binary } from "../../../../common/utils/functional/functional";
@@ -40,7 +39,7 @@ export interface CubeHeaderBarProps {
   essence: Essence;
   timekeeper: Timekeeper;
   onNavClick: Fn;
-  getCubeViewHash?: (essence: Essence, withPrefix?: boolean) => string;
+  urlForEssence: (essence: Essence) => string;
   refreshMaxTime?: Fn;
   updatingMaxTime?: boolean;
   openRawDataModal?: Fn;
@@ -110,7 +109,7 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
     this.setState({
       autoRefreshRate: rate
     });
-  }
+  };
 
   clearTimerIfExists() {
     if (this.autoRefreshTimer) {
@@ -122,14 +121,14 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
   toggleShareMenu = (e: React.MouseEvent<Element>) => {
     const { shareMenuAnchor } = this.state;
     shareMenuAnchor ? this.closeShareMenu() : this.openShareMenu(e.currentTarget);
-  }
+  };
 
   openShareMenu = (anchor: Element) => this.setState({ shareMenuAnchor: anchor });
 
   closeShareMenu = () => this.setState({ shareMenuAnchor: null });
 
   renderShareMenu() {
-    const { customization, essence, timekeeper, openUrlShortenerModal, getCubeViewHash, getDownloadableDataset } = this.props;
+    const { customization, essence, timekeeper, openUrlShortenerModal, urlForEssence, getDownloadableDataset } = this.props;
     const { shareMenuAnchor } = this.state;
     if (!shareMenuAnchor) return null;
 
@@ -140,7 +139,7 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
       openOn={shareMenuAnchor}
       onClose={this.closeShareMenu}
       customization={customization}
-      getCubeViewHash={getCubeViewHash}
+      urlForEssence={urlForEssence}
       getDownloadableDataset={getDownloadableDataset}
     />;
   }
@@ -148,7 +147,7 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
   toggleAutoRefreshMenu = (e: React.MouseEvent<Element>) => {
     const { autoRefreshMenuAnchor } = this.state;
     autoRefreshMenuAnchor ? this.closeAutoRefreshMenu() : this.openAutoRefreshMenu(e.currentTarget);
-  }
+  };
 
   openAutoRefreshMenu = (anchor: Element) => this.setState({ autoRefreshMenuAnchor: anchor });
 
@@ -174,7 +173,7 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
   toggleTimezoneMenu = (e: React.MouseEvent<Element>) => {
     const { timezoneMenuAnchor } = this.state;
     timezoneMenuAnchor ? this.closeTimezoneMenu() : this.openTimezoneMenu(e.currentTarget);
-  }
+  };
 
   openTimezoneMenu = (anchor: Element) => this.setState({ timezoneMenuAnchor: anchor });
 
@@ -197,7 +196,7 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
   toggleDebugMenu = (e: React.MouseEvent<Element>) => {
     const { debugMenuAnchor } = this.state;
     debugMenuAnchor ? this.closeDebugMenu() : this.openDebugMenu(e.currentTarget);
-  }
+  };
 
   openDebugMenu = (anchor: Element) => this.setState({ debugMenuAnchor: anchor });
 
@@ -214,7 +213,7 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
       openDruidQueryModal={openDruidQueryModal}
       openViewDefinitionModal={openViewDefinitionModal}
       openOn={debugMenuAnchor}
-      onClose={this.closeDebugMenu}/>;
+      onClose={this.closeDebugMenu} />;
   }
 
   render() {
@@ -243,13 +242,13 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
         {this.props.essence.timezone.toString()}
       </div>
       <div className={classNames("icon-button", "auto-refresh", { refreshing: this.state.animating })} onClick={this.toggleAutoRefreshMenu}>
-        <SvgIcon svg={require("../../../icons/full-refresh.svg")}/>
+        <SvgIcon svg={require("../../../icons/full-refresh.svg")} />
       </div>
       <div className="icon-button" onClick={this.toggleShareMenu}>
-        <SvgIcon svg={require("../../../icons/full-hiluk.svg")}/>
+        <SvgIcon svg={require("../../../icons/full-hiluk.svg")} />
       </div>
       <div className="icon-button" onClick={this.toggleDebugMenu}>
-        <SvgIcon svg={require("../../../icons/full-settings.svg")}/>
+        <SvgIcon svg={require("../../../icons/full-settings.svg")} />
       </div>
     </div>;
   }
@@ -258,10 +257,10 @@ export class CubeHeaderBar extends React.Component<CubeHeaderBarProps, CubeHeade
     const { onNavClick, essence: { dataCube } } = this.props;
     return <div className="left-bar">
       <div className="menu-icon" onClick={onNavClick}>
-        <SvgIcon svg={require("../../../icons/menu.svg")}/>
+        <SvgIcon svg={require("../../../icons/menu.svg")} />
       </div>
       <div className="title" onClick={onNavClick}>{dataCube.title}</div>
-      {dataCube.description && <InfoBubble className="cube-description" description={dataCube.description}/>}
+      {dataCube.description && <InfoBubble className="cube-description" description={dataCube.description} />}
     </div>;
   }
 }

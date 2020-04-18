@@ -17,8 +17,8 @@
 import { expect } from "chai";
 import * as sinon from "sinon";
 import { SinonSpy } from "sinon";
-import { sleep } from "../../../client/utils/test-utils/sleep";
-import { complement, concatTruthy, cons, debounceWithPromise, flatMap, mapTruthy, thread, threadConditionally, threadNullable } from "./functional";
+import { sleep } from "../../../client/utils/test-utils";
+import { complement, concatTruthy, cons, constant, debounceWithPromise, flatMap, mapTruthy, range, thread, threadConditionally, threadNullable, zip } from "./functional";
 
 const inc = (x: number) => x + 1;
 const double = (x: number) => x * 2;
@@ -27,6 +27,13 @@ const wrap = (...numbers: number[]) => numbers;
 
 describe("Functional utilities", () => {
 
+  describe("constant", () => {
+    it("should return function that always returns initial argument", () => {
+      const f = constant(42);
+      expect(f()).to.eq(42);
+    });
+  });
+
   describe("cons", () => {
     it("should append to empty array", () => {
       expect(cons([], 1)).to.deep.eq([1]);
@@ -34,6 +41,40 @@ describe("Functional utilities", () => {
 
     it("should keep nested arrays", () => {
       expect(cons([], [1])).to.deep.eq([[1]]);
+    });
+  });
+
+  describe("zip", () => {
+    it("should merge arrays with same length", () => {
+      expect(zip([1, 2, 3], ["a", "b", "c"])).to.deep.eq([
+        [1, "a"],
+        [2, "b"],
+        [3, "c"]
+      ]);
+    });
+
+    it("should merge common subsets of arrays with different length (first array longer)", () => {
+      expect(zip([1, 2, 3, 4], ["a", "b"])).to.deep.eq([
+        [1, "a"],
+        [2, "b"]
+      ]);
+    });
+
+    it("should merge common subsets of arrays with different length (second array longer)", () => {
+      expect(zip([1, 2], ["a", "b", "c", "d"])).to.deep.eq([
+        [1, "a"],
+        [2, "b"]
+      ]);
+    });
+  });
+
+  describe("range", () => {
+    it("should return range from 0 to exclusive 3", () => {
+      expect(range(0, 3)).to.deep.eq([0, 1, 2]);
+    });
+
+    it("should return range from 5 to exclusive 10", () => {
+      expect(range(5, 10)).to.deep.eq([5, 6, 7, 8, 9]);
     });
   });
 

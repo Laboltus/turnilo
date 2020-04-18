@@ -20,15 +20,14 @@ import { Customization } from "../../../common/models/customization/customizatio
 import { DataCube } from "../../../common/models/data-cube/data-cube";
 import { Fn } from "../../../common/utils/general/general";
 import { ClearableInput } from "../../components/clearable-input/clearable-input";
+import { HeaderBar } from "../../components/header-bar/header-bar";
 import { STRINGS } from "../../config/constants";
 import filterDataCubes from "../../utils/data-cubes-filter/data-cubes-filter";
 import { DataCubeCard } from "./data-cube-card/data-cube-card";
-import { HomeHeaderBar } from "./home-header-bar/home-header-bar";
 import "./home-view.scss";
 
 export interface HomeViewProps {
   dataCubes?: DataCube[];
-  onNavClick?: Fn;
   onOpenAbout: Fn;
   customization?: Customization;
 }
@@ -47,7 +46,7 @@ export class HomeView extends React.Component<HomeViewProps, HomeViewState> {
 
   queryChange = (query: string) => {
     this.setState(state => ({ ...state, query }));
-  }
+  };
 
   renderDataCube({ name, title, description, extendedDescription }: DataCube): JSX.Element {
     return <DataCubeCard
@@ -73,19 +72,18 @@ export class HomeView extends React.Component<HomeViewProps, HomeViewState> {
   }
 
   render() {
-    const { onNavClick, onOpenAbout, customization } = this.props;
+    const { onOpenAbout, customization } = this.props;
     const { query } = this.state;
 
     return <div className="home-view">
-      <HomeHeaderBar
-        onNavClick={onNavClick}
+      <HeaderBar
         customization={customization}
         title={STRINGS.home}
       >
         <button className="text-button" onClick={onOpenAbout}>
           {STRINGS.infoAndFeedback}
         </button>
-      </HomeHeaderBar>
+      </HeaderBar>
 
       <div className="container">
         <div className="data-cubes">
@@ -94,7 +92,7 @@ export class HomeView extends React.Component<HomeViewProps, HomeViewState> {
               onChange={this.queryChange}
               value={query}
               placeholder="Search data cubes..."
-              focusOnMount={true}/>
+              focusOnMount={true} />
           </div>
           {this.renderDataCubes()}
         </div>

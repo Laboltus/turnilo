@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
+import { List } from "immutable";
 import { Dataset } from "plywood";
 import * as React from "react";
 import { Essence } from "../../../common/models/essence/essence";
-import { Measure } from "../../../common/models/measure/measure";
+import { FilterClause } from "../../../common/models/filter-clause/filter-clause";
+import { Series } from "../../../common/models/series/series";
 import { Timekeeper } from "../../../common/models/timekeeper/timekeeper";
+import { Visualization } from "../../../common/models/visualization-manifest/visualization-manifest";
 import { DatasetLoad, error, isError, isLoaded, isLoading, loaded, loading, VisualizationProps } from "../../../common/models/visualization-props/visualization-props";
 import { debounceWithPromise, noop } from "../../../common/utils/functional/functional";
 import makeQuery from "../../../common/utils/query/visualization-query";
@@ -29,16 +32,18 @@ import { QueryError } from "../../components/query-error/query-error";
 import { classNames } from "../../utils/dom/dom";
 import { reportError } from "../../utils/error-reporter/error-reporter";
 import "./base-visualization.scss";
+import { Highlight } from "./highlight";
 
 export interface BaseVisualizationState {
   datasetLoad?: DatasetLoad;
-  dragOnMeasure?: Measure;
+  dragOnSeries: Series | null;
   scrollLeft?: number;
   scrollTop?: number;
+  highlight: Highlight | null;
 }
 
 export class BaseVisualization<S extends BaseVisualizationState> extends React.Component<VisualizationProps, S> {
-  protected className = "base-visualization";
+  protected className: Visualization = null;
 
   constructor(props: VisualizationProps) {
     super(props);
@@ -50,7 +55,9 @@ export class BaseVisualization<S extends BaseVisualizationState> extends React.C
     return {
       datasetLoad: loading,
       scrollLeft: 0,
-      scrollTop: 0
+      scrollTop: 0,
+      highlight: null,
+      dragOnSeries: null
     };
   }
 
@@ -114,7 +121,7 @@ export class BaseVisualization<S extends BaseVisualizationState> extends React.C
           if (!this.wasUsedForLastQuery(essence)) return null;
           reportError(err);
           return error(err);
-        })
+        });
 
   private wasUsedForLastQuery(essence: Essence) {
     return essence.equals(this.lastQueryEssence);
@@ -143,8 +150,8 @@ export class BaseVisualization<S extends BaseVisualizationState> extends React.C
       nextEssence.differentEffectiveFilter(essence, timekeeper, nextTimekeeper) ||
       nextEssence.differentTimeShift(essence) ||
       nextEssence.differentSplits(essence) ||
-      nextEssence.differentColors(essence) ||
       nextEssence.differentSeries(essence) ||
+      nextEssence.differentSettings(essence) ||
       this.differentBucketingTimezone(nextEssence) ||
       this.differentLastRefreshRequestTimestamp(nextProps);
   }
@@ -165,6 +172,40 @@ export class BaseVisualization<S extends BaseVisualizationState> extends React.C
   protected renderInternals(dataset: Dataset): JSX.Element {
     return null;
   }
+
+  protected getHighlight(): Highlight | null {
+    return this.state.highlight;
+  }
+
+  protected hasHighlight(): boolean {
+    return this.state.highlight !== null;
+  }
+
+  protected highlightOn(key: string): boolean {
+    const highlight = this.getHighlight();
+    if (!highlight) return false;
+    return highlight.key === key;
+  }
+
+  protected getHighlightClauses(): List<FilterClause> {
+    const highlight = this.getHighlight();
+    if (!highlight) return null;
+    return highlight.clauses;
+  }
+
+  protected dropHighlight = () => this.setState({ highlight: null });
+
+  protected acceptHighlight = () => {
+    if (!this.hasHighlight()) return;
+    const { essence, clicker } = this.props;
+    clicker.changeFilter(essence.filter.mergeClauses(this.getHighlightClauses()));
+    this.setState({ highlight: null });
+  };
+
+  protected highlight = (clauses: List<FilterClause>, key: string | null = null) => {
+    const highlight = new Highlight(clauses, key);
+    this.setState({ highlight });
+  };
 
   deriveDatasetState(dataset: Dataset): Partial<S> {
     return {};

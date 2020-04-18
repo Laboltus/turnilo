@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { Record } from "immutable";
+import { Equalable } from "immutable-class";
 
 export class ImmutableUtils {
   public static setProperty(instance: any, path: string, newValue: any): any {
@@ -78,4 +80,10 @@ export class ImmutableUtils {
 
     return ImmutableUtils.change(instance, propertyName, newArray);
   }
+}
+
+export type ImmutableRecord<T> = Record<T> & Readonly<T>;
+
+export function isEqualable(o: unknown): o is Equalable {
+  return typeof o === "object" && typeof (o as Equalable).equals === "function";
 }

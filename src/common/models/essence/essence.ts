@@ -17,16 +17,16 @@
 
 import { Timezone } from "chronoshift";
 import { List, OrderedSet, Record as ImmutableRecord, Set } from "immutable";
-import { PlywoodRange, Range, RefExpression } from "plywood";
+import { RefExpression } from "plywood";
+import { thread } from "../../utils/functional/functional";
+import nullableEquals from "../../utils/immutable-utils/nullable-equals";
 import { visualizationIndependentEvaluator } from "../../utils/rules/visualization-independent-evaluator";
-import { Colors } from "../colors/colors";
+import { MANIFESTS } from "../../visualization-manifests";
 import { DataCube } from "../data-cube/data-cube";
 import { DateRange } from "../date-range/date-range";
 import { Dimension } from "../dimension/dimension";
-import { FilterClause, FixedTimeFilterClause, isTimeFilter, NumberFilterClause, TimeFilterClause, toExpression } from "../filter-clause/filter-clause";
+import { FilterClause, FixedTimeFilterClause, isTimeFilter, TimeFilterClause, toExpression } from "../filter-clause/filter-clause";
 import { Filter } from "../filter/filter";
-import { Highlight } from "../highlight/highlight";
-import { Manifest, Resolve } from "../manifest/manifest";
 import { Measure } from "../measure/measure";
 import { SeriesList } from "../series-list/series-list";
 import { ConcreteSeries, SeriesDerivation } from "../series/concrete-series";
@@ -39,13 +39,15 @@ import { Splits } from "../splits/splits";
 import { TimeShift } from "../time-shift/time-shift";
 import { TimeShiftEnv, TimeShiftEnvType } from "../time-shift/time-shift-env";
 import { Timekeeper } from "../timekeeper/timekeeper";
+import { Resolve, VisualizationManifest } from "../visualization-manifest/visualization-manifest";
+import { VisualizationSettings } from "../visualization-settings/visualization-settings";
 
 function constrainDimensions(dimensions: OrderedSet<string>, dataCube: DataCube): OrderedSet<string> {
   return <OrderedSet<string>> dimensions.filter(dimensionName => Boolean(dataCube.getDimension(dimensionName)));
 }
 
 export interface VisualizationAndResolve {
-  visualization: Manifest;
+  visualization: VisualizationManifest;
   resolve: Resolve;
 }
 
@@ -63,33 +65,29 @@ export enum VisStrategy {
 type DimensionId = string;
 
 export interface EssenceValue {
-  visualizations: Manifest[];
   dataCube: DataCube;
-  visualization: Manifest;
+  visualization: VisualizationManifest;
+  visualizationSettings: VisualizationSettings | null;
   timezone: Timezone;
   filter: Filter;
   timeShift: TimeShift;
   splits: Splits;
   series: SeriesList;
   pinnedDimensions: OrderedSet<DimensionId>;
-  colors: Colors;
   pinnedSort: string;
-  highlight: Highlight;
   visResolve?: Resolve;
 }
 
 const defaultEssence: EssenceValue = {
-  visualizations: [],
   dataCube: null,
   visualization: null,
+  visualizationSettings: null,
   timezone: Timezone.UTC,
   filter: null,
   splits: null,
   series: null,
   pinnedDimensions: OrderedSet([]),
   pinnedSort: null,
-  colors: null,
-  highlight: null,
   timeShift: TimeShift.empty(),
   visResolve: null
 };
@@ -99,52 +97,47 @@ export interface EffectiveFilterOptions {
   combineWithPrevious?: boolean;
 }
 
-type VisualizationResolverResult = Pick<EssenceValue, "splits" | "visualization" | "colors" | "visResolve">;
-type VisualizationResolverParameters = Pick<EssenceValue, "visualization" | "visualizations" | "dataCube" | "splits" | "colors" | "series">;
+type VisualizationResolverResult = Pick<EssenceValue, "splits" | "visualization"  | "visResolve">;
+type VisualizationResolverParameters = Pick<EssenceValue, "visualization" | "dataCube" | "splits" |  "series">;
 
-function resolveVisualization({ visualization, visualizations, dataCube, splits, colors, series }: VisualizationResolverParameters): VisualizationResolverResult {
+function resolveVisualization({ visualization, dataCube, splits, series }: VisualizationResolverParameters): VisualizationResolverResult {
 
   let visResolve: Resolve;
-  if (visualizations) {
-    // Place vis here because it needs to know about splits and colors (and maybe later other things)
-    if (!visualization) {
-      const visAndResolve = Essence.getBestVisualization(visualizations, dataCube, splits, series, colors, null);
-      visualization = visAndResolve.visualization;
-    }
+  // Place vis here because it needs to know about splits and colors (and maybe later other things)
+  if (!visualization) {
+    const visAndResolve = Essence.getBestVisualization(dataCube, splits, series, null);
+    visualization = visAndResolve.visualization;
+  }
 
-    const ruleVariables = { dataCube, series, splits, colors, isSelectedVisualization: true };
-    visResolve = visualization.evaluateRules(ruleVariables);
-    if (visResolve.isAutomatic()) {
-      const adjustment = visResolve.adjustment;
-      splits = adjustment.splits;
-      colors = adjustment.colors || null;
-      visResolve = visualization.evaluateRules({ ...ruleVariables, splits, colors });
+  const ruleVariables = { dataCube, series, splits, isSelectedVisualization: true };
+  visResolve = visualization.evaluateRules(ruleVariables);
+  if (visResolve.isAutomatic()) {
+    const adjustment = visResolve.adjustment;
+    splits = adjustment.splits;
+    visResolve = visualization.evaluateRules({ ...ruleVariables, splits });
 
-      if (!visResolve.isReady()) {
-        throw new Error(visualization.title + " must be ready after automatic adjustment");
-      }
-    }
-
-    if (visResolve.isReady()) {
-      visResolve = visualizationIndependentEvaluator({ dataCube, series });
+    if (!visResolve.isReady()) {
+      throw new Error(visualization.title + " must be ready after automatic adjustment");
     }
   }
-  return { visualization, splits, colors, visResolve };
+
+  if (visResolve.isReady()) {
+    visResolve = visualizationIndependentEvaluator({ dataCube, series });
+  }
+  return { visualization, splits, visResolve };
 }
 
 export class Essence extends ImmutableRecord<EssenceValue>(defaultEssence) {
 
   static getBestVisualization(
-    visualizations: Manifest[],
     dataCube: DataCube,
     splits: Splits,
     series: SeriesList,
-    colors: Colors,
-    currentVisualization: Manifest
+    currentVisualization: VisualizationManifest
   ): VisualizationAndResolve {
-    const visAndResolves = visualizations.map(visualization => {
+    const visAndResolves = MANIFESTS.map(visualization => {
       const isSelectedVisualization = visualization === currentVisualization;
-      const ruleVariables = { dataCube, splits, series, colors, isSelectedVisualization };
+      const ruleVariables = { dataCube, splits, series, isSelectedVisualization };
       return {
         visualization,
         resolve: visualization.evaluateRules(ruleVariables)
@@ -154,20 +147,18 @@ export class Essence extends ImmutableRecord<EssenceValue>(defaultEssence) {
     return visAndResolves.sort((vr1, vr2) => Resolve.compare(vr1.resolve, vr2.resolve))[0];
   }
 
-  static fromDataCube(dataCube: DataCube, visualizations: Manifest[]): Essence {
+  static fromDataCube(dataCube: DataCube): Essence {
     const essence = new Essence({
       dataCube,
-      visualizations,
       visualization: null,
+      visualizationSettings: null,
       timezone: dataCube.getDefaultTimezone(),
       filter: dataCube.getDefaultFilter(),
       timeShift: TimeShift.empty(),
       splits: dataCube.getDefaultSplits(),
       series: SeriesList.fromMeasureNames(dataCube.getDefaultSelectedMeasures().toArray()),
       pinnedDimensions: dataCube.getDefaultPinnedDimensions(),
-      colors: null,
-      pinnedSort: dataCube.getDefaultSortMeasure(),
-      highlight: null
+      pinnedSort: dataCube.getDefaultSortMeasure()
     });
 
     return essence.updateSplitsWithFilter();
@@ -185,46 +176,52 @@ export class Essence extends ImmutableRecord<EssenceValue>(defaultEssence) {
     return new SeriesSort({ reference });
   }
 
+  static timeFilter(filter: Filter, dataCube: DataCube): TimeFilterClause {
+    const timeFilter = filter.getClauseForDimension(dataCube.getTimeDimension());
+    if (!isTimeFilter(timeFilter)) throw new Error(`Unknown time filter: ${timeFilter}`);
+    return timeFilter;
+  }
+
   public visResolve: Resolve;
 
   constructor(parameters: EssenceValue) {
     const {
       filter,
-      visualizations,
       dataCube,
       timezone,
       timeShift,
       series,
       pinnedDimensions,
-      pinnedSort,
-      highlight
+      pinnedSort
     } = parameters;
 
     if (!dataCube) throw new Error("Essence must have a dataCube");
 
-    const { visResolve, visualization, colors, splits } = resolveVisualization(parameters);
-
-    const newHighlight = highlight && highlight.validForSeries(series) ? highlight : null;
+    const { visResolve, visualization, splits } = resolveVisualization(parameters);
 
     const constrainedSeries = series && series.constrainToMeasures(dataCube.measures);
 
     const isPinnedSortValid = series && constrainedSeries.hasMeasureSeries(pinnedSort);
     const constrainedPinnedSort = isPinnedSortValid ? pinnedSort : Essence.defaultSortReference(constrainedSeries, dataCube);
 
+    const constrainedFilter = filter.constrainToDimensions(dataCube.dimensions);
+
+    const validTimezone = timezone || Timezone.UTC;
+
+    const timeFilter = Essence.timeFilter(filter, dataCube);
+    const constrainedTimeShift = timeShift.constrainToFilter(timeFilter, validTimezone);
+
     super({
       ...parameters,
-      visualizations,
       dataCube,
       visualization,
-      timezone: timezone || Timezone.UTC,
-      timeShift,
+      timezone: validTimezone,
+      timeShift: constrainedTimeShift,
       splits: splits && splits.constrainToDimensionsAndSeries(dataCube.dimensions, constrainedSeries),
-      filter: filter && filter.constrainToDimensions(dataCube.dimensions),
+      filter: constrainedFilter,
       series: constrainedSeries,
       pinnedDimensions: constrainDimensions(pinnedDimensions, dataCube),
       pinnedSort: constrainedPinnedSort,
-      colors,
-      highlight: newHighlight && newHighlight.constrainToDimensions(dataCube.dimensions),
       visResolve
     });
   }
@@ -236,18 +233,16 @@ export class Essence extends ImmutableRecord<EssenceValue>(defaultEssence) {
   public toJS() {
     return {
       visualization: this.visualization,
+      visualizationSettings: this.visualizationSettings,
       dataCube: this.dataCube.toJS(),
       timezone: this.timezone.toJS(),
       filter: this.filter && this.filter.toJS(),
       splits: this.splits && this.splits.toJS(),
       series: this.series.toJS(),
       timeShift: this.timeShift.toJS(),
-      colors: this.colors && this.colors.toJS(),
       pinnedSort: this.pinnedSort,
       pinnedDimensions: this.pinnedDimensions.toJS(),
-      highlight: this.highlight && this.highlight.toJS(),
-      visResolve: this.visResolve,
-      visualizations: this.visualizations
+      visResolve: this.visResolve
     };
   }
 
@@ -291,6 +286,11 @@ export class Essence extends ImmutableRecord<EssenceValue>(defaultEssence) {
     };
   }
 
+  private constrainTimeShift(): Essence {
+    const { timeShift, timezone } = this;
+    return this.set("timeShift", timeShift.constrainToFilter(this.timeFilter(), timezone));
+  }
+
   public getEffectiveFilter(
     timekeeper: Timekeeper,
     { combineWithPrevious = false, unfilterDimension = null }: EffectiveFilterOptions = {}): Filter {
@@ -319,17 +319,20 @@ export class Essence extends ImmutableRecord<EssenceValue>(defaultEssence) {
         ]));
   }
 
-  private timeFilter(timekeeper: Timekeeper): FixedTimeFilterClause {
+  public timeFilter(): TimeFilterClause {
+    const { filter, dataCube } = this;
+    return Essence.timeFilter(filter, dataCube);
+  }
+
+  private fixedTimeFilter(timekeeper: Timekeeper): FixedTimeFilterClause {
     const { dataCube, timezone } = this;
-    const timeDimension: Dimension = this.getTimeDimension();
-    const timeFilter = this.filter.getClauseForDimension(timeDimension);
-    if (!timeFilter || !isTimeFilter(timeFilter)) throw Error(`Incorrect time filter: ${timeFilter}`);
+    const timeFilter = this.timeFilter();
     if (timeFilter instanceof FixedTimeFilterClause) return timeFilter;
     return timeFilter.evaluate(timekeeper.now(), dataCube.getMaxTime(timekeeper), timezone);
   }
 
   public currentTimeFilter(timekeeper: Timekeeper): FixedTimeFilterClause {
-    return this.timeFilter(timekeeper);
+    return this.fixedTimeFilter(timekeeper);
   }
 
   private shiftToPrevious(timeFilter: FixedTimeFilterClause): FixedTimeFilterClause {
@@ -343,7 +346,7 @@ export class Essence extends ImmutableRecord<EssenceValue>(defaultEssence) {
   }
 
   public previousTimeFilter(timekeeper: Timekeeper): FixedTimeFilterClause {
-    const timeFilter = this.timeFilter(timekeeper);
+    const timeFilter = this.fixedTimeFilter(timekeeper);
     return this.shiftToPrevious(timeFilter);
   }
 
@@ -381,40 +384,18 @@ export class Essence extends ImmutableRecord<EssenceValue>(defaultEssence) {
     return !this.timeShift.equals(other.timeShift);
   }
 
-  public differentColors(other: Essence): boolean {
-    if (Boolean(this.colors) !== Boolean(other.colors)) return true;
-    if (!this.colors) return false;
-    return !this.colors.equals(other.colors);
-  }
-
   public differentSeries(other: Essence): boolean {
     return !this.series.equals(other.series);
+  }
+
+  public differentSettings(other: Essence): boolean {
+    return !nullableEquals(this.visualizationSettings, other.visualizationSettings);
   }
 
   public differentEffectiveFilter(other: Essence, myTimekeeper: Timekeeper, otherTimekeeper: Timekeeper, unfilterDimension: Dimension = null): boolean {
     const myEffectiveFilter = this.getEffectiveFilter(myTimekeeper, { unfilterDimension });
     const otherEffectiveFilter = other.getEffectiveFilter(otherTimekeeper, { unfilterDimension });
     return !myEffectiveFilter.equals(otherEffectiveFilter);
-  }
-
-  public hasHighlight(): boolean {
-    return !!this.highlight;
-  }
-
-  public highlightOn(measure: string): boolean {
-    const { highlight } = this;
-    if (!highlight) return false;
-    return highlight.measure === measure;
-  }
-
-  public getHighlightRange(): PlywoodRange {
-    const { highlight } = this;
-    if (!highlight) return null;
-    const clause = highlight.delta.clauses.first();
-    if ((clause instanceof NumberFilterClause) || (clause instanceof FixedTimeFilterClause)) {
-      return Range.fromJS(clause.values.first());
-    }
-    return null;
   }
 
   public getCommonSort(): Sort {
@@ -424,36 +405,35 @@ export class Essence extends ImmutableRecord<EssenceValue>(defaultEssence) {
   // Setters
 
   public changeComparisonShift(timeShift: TimeShift): Essence {
-    return this.set("timeShift", timeShift).updateSorts();
+    return this
+      .set("timeShift", timeShift)
+      .constrainTimeShift()
+      .updateSorts();
   }
 
   public updateDataCube(newDataCube: DataCube): Essence {
     const { dataCube } = this;
     if (dataCube.equals(newDataCube)) return this;
-    const newSeriesList = this.series.constrainToMeasures(newDataCube.measures);
+    const seriesInNewCube = this.series.constrainToMeasures(newDataCube.measures);
+    const newSeriesList = !seriesInNewCube.isEmpty()
+      ? seriesInNewCube
+      : SeriesList.fromMeasureNames(newDataCube.getDefaultSelectedMeasures().toArray());
     return this
       .set("dataCube", newDataCube)
-      // Make sure that all the elements of state are still valid
-      /*
-        TODO: Tthis line was here and there was some check for old timeFilter, really don't know what was that for.
-      .update("filter", filter => filter.constrainToDimensions(newDataCube.dimensions, newDataCube.timeAttribute, dataCube.timeAttribute))
-      */
       .update("filter", filter => filter.constrainToDimensions(newDataCube.dimensions))
       .set("series", newSeriesList)
       .update("splits", splits => splits.constrainToDimensionsAndSeries(newDataCube.dimensions, newSeriesList))
       .update("pinnedDimensions", pinned => constrainDimensions(pinned, newDataCube))
-      .update("colors", colors => colors && !newDataCube.getDimension(colors.dimension) ? null : colors)
       .update("pinnedSort", sort => !newDataCube.getMeasure(sort) ? newDataCube.getDefaultSortMeasure() : sort)
-      .update("highlight", highlight => highlight && highlight.constrainToDimensions(newDataCube.dimensions))
       .resolveVisualizationAndUpdate();
   }
 
-  public changeFilter(filter: Filter, removeHighlight = false): Essence {
+  public changeFilter(filter: Filter): Essence {
     const { filter: oldFilter } = this;
 
     return this
       .set("filter", filter)
-      .update("highlight", highlight => removeHighlight ? null : highlight)
+      .constrainTimeShift()
       .update("splits", splits => {
         const differentClauses = filter.clauses.filter(clause => {
           const otherClause = oldFilter.clauseForReference(clause.reference);
@@ -499,37 +479,33 @@ export class Essence extends ImmutableRecord<EssenceValue>(defaultEssence) {
   }
 
   public changeSplits(splits: Splits, strategy: VisStrategy): Essence {
-    const { visualizations, highlight, dataCube, visualization, visResolve, filter, series, colors } = this;
+    const { splits: oldSplits, dataCube, visualization, visResolve, filter, series } = this;
 
-    const splitsWithSorts = this.setSortOnSplits(splits);
-    const splitsWithFilters = splitsWithSorts.updateWithFilter(filter, dataCube.dimensions);
+    const newSplits = this.setSortOnSplits(splits).updateWithFilter(filter, dataCube.dimensions);
 
-    // If in manual mode stay there, keep the vis regardless of suggested strategy
-    if (visResolve.isManual()) {
-      strategy = VisStrategy.KeepAlways;
-    }
-    if (this.splits.length() > 0 && splitsWithFilters.length() !== 0) {
-      strategy = VisStrategy.UnfairGame;
-    }
-
-    let newVisualization: Manifest = visualization;
-    if (strategy !== VisStrategy.KeepAlways && strategy !== VisStrategy.UnfairGame) {
-      const currentVisualization = (strategy === VisStrategy.FairGame ? null : visualization);
-      const visAndResolve = Essence.getBestVisualization(visualizations, dataCube, splitsWithFilters, series, colors, currentVisualization);
-      newVisualization = visAndResolve.visualization;
+    function adjustStrategy(strategy: VisStrategy): VisStrategy {
+      // If in manual mode stay there, keep the vis regardless of suggested strategy
+      if (visResolve.isManual()) {
+        return VisStrategy.KeepAlways;
+      }
+      if (oldSplits.length() > 0 && newSplits.length() !== 0) {
+        return VisStrategy.UnfairGame;
+      }
+      return strategy;
     }
 
-    function resetHighlight(essence: Essence): Essence {
-      return essence
-        .update("filter", filter => highlight.applyToFilter(filter))
-        .set("highlight", null);
+    function adjustVisualization(essence: Essence): Essence {
+      if (adjustStrategy(strategy) !== VisStrategy.FairGame) return essence;
+      const { visualization: newVis } = Essence.getBestVisualization(dataCube, newSplits, series, visualization);
+      if (newVis === visualization) return essence;
+      return essence.changeVisualization(newVis, newVis.visualizationSettings.defaults);
     }
 
-    const withoutHighlight = highlight ? resetHighlight(this) : this;
-
-    return withoutHighlight
-      .set("splits", splitsWithFilters)
-      .changeVisualization(newVisualization);
+    return thread(
+      this,
+      (essence: Essence) => essence.set("splits", newSplits),
+      adjustVisualization,
+      (essence: Essence) => essence.resolveVisualizationAndUpdate());
   }
 
   public changeSplit(splitCombine: Split, strategy: VisStrategy): Essence {
@@ -606,20 +582,18 @@ export class Essence extends ImmutableRecord<EssenceValue>(defaultEssence) {
     return this.set("splits", newSplits).resolveVisualizationAndUpdate();
   }
 
-  public changeColors(colors: Colors): Essence {
-    return this.set("colors", colors).resolveVisualizationAndUpdate();
-  }
-
-  public changeVisualization(visualization: Manifest): Essence {
-    return this.set("visualization", visualization).resolveVisualizationAndUpdate();
+  public changeVisualization(visualization: VisualizationManifest, settings: VisualizationSettings = visualization.visualizationSettings.defaults): Essence {
+    return this
+      .set("visualization", visualization)
+      .set("visualizationSettings", settings)
+      .resolveVisualizationAndUpdate();
   }
 
   public resolveVisualizationAndUpdate() {
-    const { visualization, colors, splits, dataCube, visualizations, series } = this;
-    const result = resolveVisualization({ colors, splits, dataCube, visualizations, series, visualization });
+    const { visualization, splits, dataCube, series } = this;
+    const result = resolveVisualization({ splits, dataCube, visualization, series });
     return this
       .set("visResolve", result.visResolve)
-      .set("colors", result.colors)
       .set("visualization", result.visualization)
       .set("splits", result.splits);
   }
@@ -632,27 +606,8 @@ export class Essence extends ImmutableRecord<EssenceValue>(defaultEssence) {
     return this.update("pinnedDimensions", pinned => pinned.remove(name));
   }
 
-  public getPinnedSortMeasure(): Measure {
-    return this.dataCube.getMeasure(this.pinnedSort);
-  }
-
-  public changePinnedSortMeasure({ name }: Measure): Essence {
-    return this.set("pinnedSort", name);
-  }
-
-  public acceptHighlight(): Essence {
-    const { highlight } = this;
-    if (!highlight) return this;
-    return this.changeFilter(highlight.applyToFilter(this.filter), true);
-  }
-
-  public changeHighlight(newHighlight: Highlight): Essence {
-    if (!newHighlight.validForSeries(this.series)) return this;
-    return this.set("highlight", newHighlight);
-  }
-
-  public dropHighlight(): Essence {
-    return this.set("highlight", null);
+  public changePinnedSortSeries(series: Series): Essence {
+    return this.set("pinnedSort", series.plywoodKey());
   }
 
   public seriesSortOns(withTimeShift?: boolean): List<SortOn> {
@@ -666,5 +621,9 @@ export class Essence extends ImmutableRecord<EssenceValue>(defaultEssence) {
         new SeriesSortOn(series, SeriesDerivation.DELTA)
       ];
     });
+  }
+
+  public getPinnedSortSeries(): ConcreteSeries {
+    return this.findConcreteSeries(this.pinnedSort);
   }
 }

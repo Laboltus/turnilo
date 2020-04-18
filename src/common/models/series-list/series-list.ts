@@ -66,7 +66,7 @@ export class SeriesList extends Record<SeriesListValue>(defaultSeriesList) {
   }
 
   public removeSeries(series: Series): SeriesList {
-    return this.updateSeries(list => list.filter(s => s !== series));
+    return this.updateSeries(list => list.filter(s => s.key() !== series.key()));
   }
 
   public replaceSeries(original: Series, newSeries: Series): SeriesList {
@@ -118,6 +118,10 @@ export class SeriesList extends Record<SeriesListValue>(defaultSeriesList) {
 
   public count(): number {
     return this.series.count();
+  }
+
+  public isEmpty(): boolean {
+    return this.series.isEmpty();
   }
 
   private updateSeries(updater: Unary<List<Series>, List<Series>>) {

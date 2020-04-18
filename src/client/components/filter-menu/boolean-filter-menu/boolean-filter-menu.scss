@@ -18,13 +18,15 @@
 @import '../../../imports';
 
 $checkbox-width: 20px;
+$table-height: 80px;
 
 .boolean-filter-menu {
   .menu-table {
 
     @extend %white-shadow;
+    @include css-variable(color, text-standard);
     background: $white;
-    color: $text-standard;
+    height: $table-height;
 
     &::after {
       @include unpin-full(0, -14px, 0, -14px);
@@ -54,7 +56,7 @@ $checkbox-width: 20px;
       }
 
       &:hover {
-        background: $hover;
+        @include css-variable(background-color, hover);
       }
 
       &:last-child {

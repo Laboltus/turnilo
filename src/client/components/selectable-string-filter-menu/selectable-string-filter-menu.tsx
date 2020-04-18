@@ -19,7 +19,6 @@ import { Set } from "immutable";
 import { Dataset } from "plywood";
 import * as React from "react";
 import { Clicker } from "../../../common/models/clicker/clicker";
-import { Colors } from "../../../common/models/colors/colors";
 import { Dimension } from "../../../common/models/dimension/dimension";
 import { Essence } from "../../../common/models/essence/essence";
 import { FilterClause, StringFilterAction, StringFilterClause } from "../../../common/models/filter-clause/filter-clause";
@@ -58,7 +57,6 @@ export interface SelectableStringFilterMenuState {
   searchText: string;
   dataset: DatasetLoad;
   selectedValues: Set<string>;
-  colorsForDimension?: Colors;
   pasteModeEnabled: boolean;
 }
 
@@ -79,8 +77,7 @@ export class SelectableStringFilterMenu extends React.Component<SelectableString
   state: SelectableStringFilterMenuState = {
     pasteModeEnabled: false,
     dataset: loading,
-    selectedValues: Set(),
-    colorsForDimension: null,
+    selectedValues: this.initialSelection(),
     searchText: ""
   };
 
@@ -120,20 +117,11 @@ export class SelectableStringFilterMenu extends React.Component<SelectableString
           return error(err);
         }
       );
-  }
+  };
 
   private debouncedQueryFilter = debounceWithPromise(this.queryFilter, SEARCH_WAIT);
 
   componentWillMount() {
-    const { essence, dimension } = this.props;
-    const { colors } = essence;
-
-    const ownsColors = colors && colors.dimension === dimension.name;
-    const colorsForDimension = ownsColors ? colors : null;
-    const valuesFromColors = (ownsColors ? Set(colors.toArray()) : Set.of());
-    const selectedValues = this.initialSelection() || valuesFromColors;
-    this.setState({ selectedValues, colorsForDimension });
-
     this.loadRows();
   }
 
@@ -161,7 +149,7 @@ export class SelectableStringFilterMenu extends React.Component<SelectableString
     if (!this.state.pasteModeEnabled && enterKey(e)) {
       this.onOkClick();
     }
-  }
+  };
 
   updateSearchText = (searchText: string) => this.setState({ searchText });
 
@@ -181,22 +169,20 @@ export class SelectableStringFilterMenu extends React.Component<SelectableString
   }
 
   onValueClick = (value: string, withModKey: boolean) => {
-    const { selectedValues, colorsForDimension: oldColors } = this.state;
-    const colorsForDimension = oldColors && oldColors.toggle(value);
+    const { selectedValues } = this.state;
     if (withModKey) {
       const isValueSingleSelected = selectedValues.contains(value) && selectedValues.count() === 1;
-      return this.setState({ colorsForDimension, selectedValues: isValueSingleSelected ? Set.of() : Set.of(value) });
+      return this.setState({ selectedValues: isValueSingleSelected ? Set.of() : Set.of(value) });
     }
-    return this.setState({ colorsForDimension, selectedValues: toggle(selectedValues, value) });
-  }
+    return this.setState({ selectedValues: toggle(selectedValues, value) });
+  };
 
   onOkClick = () => {
     if (!this.isFilterValid()) return;
     const { clicker, onClose } = this.props;
-    const { colorsForDimension } = this.state;
-    clicker.changeFilter(this.constructFilter(), colorsForDimension);
+    clicker.changeFilter(this.constructFilter());
     onClose();
-  }
+  };
 
   enablePasteMode = () => this.setState({ pasteModeEnabled: true });
 

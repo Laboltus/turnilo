@@ -51,6 +51,7 @@ export interface ClusterManagerOptions {
   anchorPath: string;
   initialExternals?: ManagedExternal[];
   onExternalChange?: (name: string, external: External) => Promise<void>;
+  onExternalRemoved?: (name: string, external: External) => Promise<void>;
   generateExternalName?: (external: External) => string;
 }
 
@@ -60,6 +61,10 @@ function emptyResolve(): Promise<void> {
 
 function getSourceFromExternal(external: External): string {
   return String(external.source);
+}
+
+function externalContainsSource(external: External, source: string): boolean {
+  return Array.isArray(external.source) ? external.source.indexOf(source) > -1 : String(external.source) === source;
 }
 
 export class ClusterManager {
@@ -73,6 +78,7 @@ export class ClusterManager {
   public requester: PlywoodRequester<any>;
   public managedExternals: ManagedExternal[] = [];
   public onExternalChange: (name: string, external: External) => Promise<void>;
+  public onExternalRemoved: (name: string, external: External) => Promise<void>;
   public generateExternalName: (external: External) => string;
   public requestDecoratorModule: DruidRequestDecoratorModule;
 
@@ -94,6 +100,7 @@ export class ClusterManager {
     this.version = cluster.version;
     this.managedExternals = options.initialExternals || [];
     this.onExternalChange = options.onExternalChange || emptyResolve;
+    this.onExternalRemoved = options.onExternalRemoved || emptyResolve;
     this.generateExternalName = options.generateExternalName || getSourceFromExternal;
 
     this.updateRequestDecorator();
@@ -145,6 +152,11 @@ export class ClusterManager {
     if (managedExternal.external.equals(newExternal)) return null;
     managedExternal.external = newExternal;
     return this.onExternalChange(managedExternal.name, managedExternal.external);
+  }
+
+  private removeManagedExternal(managedExternal: ManagedExternal): Promise<void> {
+    this.managedExternals = this.managedExternals.filter(ext => ext.external !== managedExternal.external);
+    return this.onExternalRemoved(managedExternal.name, managedExternal.external);
   }
 
   private updateRequestDecorator(): void {
@@ -327,8 +339,16 @@ export class ClusterManager {
           if (verbose) logger.log(`For cluster '${cluster.name}' got sources: [${sources.join(", ")}]`);
           // For every un-accounted source: make an external and add it to the managed list.
           let introspectionTasks: Array<Promise<void>> = [];
+
+          this.managedExternals.forEach(ex => {
+            if (sources.find(src => src === String(ex.external.source)) == null) {
+              logger.log(`Missing source '${String(ex.external.source)}' + " for cluster '${cluster.name}', removing...`);
+              introspectionTasks.push(this.removeManagedExternal(ex));
+            }
+          });
+
           sources.forEach(source => {
-            const existingExternalsForSource = this.managedExternals.filter(managedExternal => getSourceFromExternal(managedExternal.external) === source);
+            const existingExternalsForSource = this.managedExternals.filter(managedExternal => externalContainsSource(managedExternal.external, source));
 
             if (existingExternalsForSource.length) {
               if (verbose) logger.log(`Cluster '${cluster.name}' already has an external for '${source}' ('${existingExternalsForSource[0].name}')`);
@@ -370,9 +390,25 @@ export class ClusterManager {
 
     logger.log(`Introspecting all sources in cluster '${cluster.name}'`);
 
-    return Promise.all(this.managedExternals.map(managedExternal => {
-      return this.introspectManagedExternal(managedExternal);
-    })).then(noop);
+    return (External.getConstructorFor(cluster.type) as any).getSourceList(this.requester)
+        .then(
+            (sources: string[]) => {
+              let introspectionTasks: Array<Promise<void>> = [];
+              sources.forEach(source => {
+                const existingExternalsForSource = this.managedExternals.filter(managedExternal => externalContainsSource(managedExternal.external, source));
+
+                if (existingExternalsForSource.length) {
+                  existingExternalsForSource.forEach(existingExternalForSource => {
+                    introspectionTasks.push(this.introspectManagedExternal(existingExternalForSource));
+                  });
+                }
+              });
+              return Promise.all(introspectionTasks);
+            },
+            (e: Error) => {
+              logger.error(`Failed to get source list from cluster '${cluster.name}' because: ${e.message}`);
+            }
+        );
   }
 
   // Refresh the cluster now, will trigger onExternalUpdate and then return an empty promise when done
