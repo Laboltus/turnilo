@@ -44,7 +44,7 @@ const rulesEvaluator = visualizationDependentEvaluatorBuilder
     const changed = !newSplits.equals(splits);
     return changed
       ? Resolve.automatic(6, { splits: newSplits })
-      : Resolve.ready(isSelectedVisualization ? 10 : 6);
+      : Resolve.ready(isSelectedVisualization ? 10 : 7);
   })
   .build();
 
